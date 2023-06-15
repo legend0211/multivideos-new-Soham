@@ -179,7 +179,6 @@ public class Player extends AppCompatActivity {
         exoPlayer = new ExoPlayer.Builder(getApplicationContext()).build();
         playerView.setPlayer(exoPlayer);
 
-
         File cacheDir = getApplicationContext().getCacheDir();
         File[] cacheFiles = cacheDir.listFiles();
         int flag = 0;
@@ -188,6 +187,8 @@ public class Player extends AppCompatActivity {
                 Log.d(TAG, vname+" Cache files : "+cacheFile.getName());
                 if (cacheFile.isFile() && cacheFile.getName().equals(vname)) {
                     Log.d(TAG, "Entered playing from cache");
+                    client client=new client(this);
+                    client.registerService(8888, vname);
                     File filee = cacheFile;
                     MediaItem mediaItem = MediaItem.fromUri(filee.getPath());
                     exoPlayer.setMediaItem(mediaItem);
@@ -202,6 +203,7 @@ public class Player extends AppCompatActivity {
         //Default code
         //else {
         if(flag == 0) {
+            File check;
             String path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS) + "/exoplayer.mp4";
             receivedFile = new File(path);
             boolean exists = receivedFile.exists();
@@ -210,12 +212,7 @@ public class Player extends AppCompatActivity {
                 server server=new server(this,"exoplayer.mp4");
                 server.discoverServices();
 
-                File check=new File(path);
-//                try {
-//                    Thread.sleep(5000);
-//                } catch (InterruptedException e) {
-//                    throw new RuntimeException(e);
-//                }
+                check=new File(path);
                 exists=check.exists();
                 exoPlayer = new ExoPlayer.Builder(context).build();
                 playerView.setPlayer(exoPlayer);
@@ -238,41 +235,48 @@ public class Player extends AppCompatActivity {
                         @Override
                         public void run() {
                             try {
-                                URL url = new URL(vUrl);
-                                URLConnection connection = url.openConnection();
-                                InputStream inputStream = new BufferedInputStream(connection.getInputStream());
+                                Thread.sleep(3000);
+                                if(!check.exists()) {
+                                    URL url = new URL(vUrl);
+                                    URLConnection connection = url.openConnection();
+                                    InputStream inputStream = new BufferedInputStream(connection.getInputStream());
 
-                                File cacheDir = getApplicationContext().getCacheDir();
-                                File videoFile = new File(cacheDir, fileName);
-                                OutputStream outputStream = new FileOutputStream(videoFile);
+                                    File cacheDir = getApplicationContext().getCacheDir();
+                                    File videoFile = new File(cacheDir, fileName);
+                                    //File video = new File( Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS) + "/exoplayer.mp4");
+                                    OutputStream outputStream = new FileOutputStream(videoFile);
+                                    //OutputStream outputStream1 = new FileOutputStream(video);
 
-                                byte[] buffer = new byte[1024];
-                                int bytesRead;
-                                while ((bytesRead = inputStream.read(buffer)) != -1) {
-                                    outputStream.write(buffer, 0, bytesRead);
-                                }
-                                outputStream.close();
-                                inputStream.close();
-
-                                final Player activity = Player.this;
-                                new Thread(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        activity.runOnUiThread(new Runnable() {
-                                            @Override
-                                            public void run() {
-                                                Toast.makeText(context.getApplicationContext(), "Saved video to cache", Toast.LENGTH_LONG).show();
-                                                MediaItem mediaItem = MediaItem.fromUri(videoFile.getPath());
-                                                exoPlayer.prepare();
-                                                long currentPos = exoPlayer.getCurrentPosition();
-                                                exoPlayer.setMediaItem(mediaItem);
-                                                exoPlayer.seekTo(currentPos);
-                                                exoPlayer.play();
-                                                Log.d(TAG, "Playing from cache from mid");
-                                            }
-                                        });
+                                    byte[] buffer = new byte[1024];
+                                    int bytesRead;
+                                    while ((bytesRead = inputStream.read(buffer)) != -1) {
+                                        outputStream.write(buffer, 0, bytesRead);
+                                        //outputStream1.write(buffer, 0, bytesRead);
                                     }
-                                }).start();
+                                    outputStream.close();
+                                    //outputStream1.close();
+                                    inputStream.close();
+
+                                    final Player activity = Player.this;
+                                    new Thread(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            activity.runOnUiThread(new Runnable() {
+                                                @Override
+                                                public void run() {
+                                                    Toast.makeText(context.getApplicationContext(), "Saved video to cache", Toast.LENGTH_LONG).show();
+                                                    MediaItem mediaItem = MediaItem.fromUri(videoFile.getPath());
+                                                    exoPlayer.prepare();
+                                                    long currentPos = exoPlayer.getCurrentPosition();
+                                                    exoPlayer.setMediaItem(mediaItem);
+                                                    exoPlayer.seekTo(currentPos);
+                                                    exoPlayer.play();
+                                                    Log.d(TAG, "Playing from cache from mid");
+                                                }
+                                            });
+                                        }
+                                    }).start();
+                                }
                             }
                             catch(Exception e){
                                 Log.e(TAG, "ERROR while caching : ");
@@ -328,8 +332,6 @@ public class Player extends AppCompatActivity {
     }
 
     void playFromLocalStorage(){
-        client client=new client(this);
-        client.registerService(8888);
         DataSource.Factory dataSourceFactory = new FileDataSource.Factory();
         MediaSource mediaSource = new ProgressiveMediaSource.Factory(dataSourceFactory)
                 .createMediaSource(MediaItem.fromUri(Uri.fromFile(receivedFile)));
@@ -430,8 +432,8 @@ public class Player extends AppCompatActivity {
         String date1 = String.valueOf(currentTime);
         String temp = vname + "       " + date1 + "      " + min + ":" + secs + ":" + milliseconds + "  " + cache;
 
-        //String URL = "http://192.168.0.3:4000/video";
-        String URL = "http://192.168.0.131:4000/video";
+        String URL = "http://192.168.0.5:4000/video";
+        //String URL = "http://192.168.0.131:4000/video";
         //String URL = "http://172.16.15.22:4000/video";
 
 
@@ -471,7 +473,6 @@ public class Player extends AppCompatActivity {
         filter.addAction(WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION);
         filter.addAction(WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION);
         filter.addAction(WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION);
-        //registerReceiver(mReceiver, filter);
         exoPlayer.setPlayWhenReady(true);
     }
 

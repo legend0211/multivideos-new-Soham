@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Locale;
 
 public class VideoAdapter extends RecyclerView.Adapter<VideoAdapter.ViewHolder> implements Filterable {
-
     private List<Video> allVideos;
     List<Video> videoListAll=new ArrayList<>(); // for filtering
     private final Context context;

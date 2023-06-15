@@ -68,12 +68,12 @@ public class server extends AppCompatActivity {
 
             @Override
             public void onStartDiscoveryFailed(String serviceType, int errorCode) {
-                Log.e(TAG, "Error code: " + errorCode);
+                Log.e(TAG, "Error code (onStartDiscoveryFailed) : " + errorCode);
             }
 
             @Override
             public void onStopDiscoveryFailed(String serviceType, int errorCode) {
-                Log.e(TAG, "Error code: " + errorCode);
+                Log.e(TAG, "Error code (onStopDiscoveryFailed) : " + errorCode);
             }
         };
 
@@ -88,9 +88,8 @@ public class server extends AppCompatActivity {
         resolveListener = new NsdManager.ResolveListener() {
             @Override
             public void onResolveFailed(NsdServiceInfo serviceInfo, int errorCode) {
-                Log.e(TAG, "Error code: " + errorCode);
+                Log.e(TAG, "Error code (onResolveFailed) : " + errorCode);
             }
-
             @Override
             public void onServiceResolved(NsdServiceInfo serviceInfo) {
                 stopDiscovery();
@@ -125,9 +124,6 @@ public class server extends AppCompatActivity {
         executorService.execute(new Runnable() {
             @Override
             public void run() {
-                if (socket == null) {
-                    Log.d(TAG, "Client disconnectedd");
-                }
                 try {
                     Log.d(TAG, "Waiting for incoming connections...");
                     InetAddress host = InetAddress.getByName(serviceInfo.getHost().getHostAddress());
@@ -139,6 +135,11 @@ public class server extends AppCompatActivity {
                     // receive the video
                     InputStream inputStream = socket.getInputStream();
                     File outputFile = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), videoName);
+                    if(outputFile.exists()){
+                        outputFile.delete();
+                        outputFile.createNewFile();
+                    }
+
                     OutputStream outputStream = new FileOutputStream(outputFile);
                     byte[] buffer = new byte[1024 * 1024];
                     int bytesRead, count=0;
