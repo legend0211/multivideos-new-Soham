@@ -84,6 +84,9 @@ public class Player extends AppCompatActivity {
     Context context = this;
     client nsdClient;
     server nsdServer;
+
+    static int storage_exists = 0;
+
     long starttime = 0L, timemilli = 0L, timeswap = 0L, updatetime = 0L, min, secs, milliseconds;
     Runnable updateTimeThread = new Runnable() {
         @Override
@@ -220,6 +223,31 @@ public class Player extends AppCompatActivity {
                     playFromLocalStorage();
                 }
                 else {
+                    new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            while(storage_exists == 0) {
+                                System.out.print("Trying to play from storage");
+                            }
+                            if (storage_exists == 1) {
+                                final Player activity = Player.this;
+                                activity.runOnUiThread(new Runnable() {
+                                    @Override
+                                    public void run() {
+
+                                        MediaItem mediaItem = MediaItem.fromUri(receivedFile.getPath());
+                                        exoPlayer.prepare();
+                                        long currentPos = exoPlayer.getCurrentPosition();
+                                        exoPlayer.setMediaItem(mediaItem);
+                                        exoPlayer.seekTo(currentPos);
+                                        exoPlayer.play();
+                                        Toast.makeText(getApplicationContext(), "Playing from storage from mid", Toast.LENGTH_SHORT).show();
+                                        Log.d(TAG, "Playing from storage from mid");
+                                    }
+                                });
+                            }
+                        }
+                    }).start();
                     MediaItem mediaItem = MediaItem.fromUri(videoUrl);
                     exoPlayer.setMediaItem(mediaItem);
                     exoPlayer.prepare();
@@ -237,6 +265,7 @@ public class Player extends AppCompatActivity {
                             try {
                                 Thread.sleep(3000);
                                 if(!check.exists()) {
+                                    server.stopDiscovery();
                                     URL url = new URL(vUrl);
                                     URLConnection connection = url.openConnection();
                                     InputStream inputStream = new BufferedInputStream(connection.getInputStream());
@@ -264,7 +293,7 @@ public class Player extends AppCompatActivity {
                                             activity.runOnUiThread(new Runnable() {
                                                 @Override
                                                 public void run() {
-                                                    Toast.makeText(context.getApplicationContext(), "Saved video to cache", Toast.LENGTH_LONG).show();
+                                                    Toast.makeText(context.getApplicationContext(), "Saved video to cache", Toast.LENGTH_SHORT).show();
                                                     MediaItem mediaItem = MediaItem.fromUri(videoFile.getPath());
                                                     exoPlayer.prepare();
                                                     long currentPos = exoPlayer.getCurrentPosition();
@@ -337,6 +366,7 @@ public class Player extends AppCompatActivity {
                 .createMediaSource(MediaItem.fromUri(Uri.fromFile(receivedFile)));
         exoPlayer.setMediaSource(mediaSource);
         exoPlayer.prepare();
+        Toast.makeText(getApplicationContext(), "Playing from storage", Toast.LENGTH_SHORT).show();
     }
     private boolean isVideoCached(Uri uri) {
         CacheDataSource.Factory cdf = new CacheDataSource.Factory();
@@ -432,7 +462,7 @@ public class Player extends AppCompatActivity {
         String date1 = String.valueOf(currentTime);
         String temp = vname + "       " + date1 + "      " + min + ":" + secs + ":" + milliseconds + "  " + cache;
 
-        String URL = "http://192.168.0.5:4000/video";
+        String URL = "http://192.168.0.6:4000/video";
         //String URL = "http://192.168.0.131:4000/video";
         //String URL = "http://172.16.15.22:4000/video";
 

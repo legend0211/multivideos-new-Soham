@@ -7,8 +7,9 @@ import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Environment;
 import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
-
+import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import java.io.File;
@@ -22,7 +23,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-public class server extends AppCompatActivity {
+
+public class server extends AppCompatActivity{
     private static final String SERVICE_TYPE = "_http._tcp.";
     private static final String TAG = "Server";
     private NsdManager nsdManager;
@@ -31,7 +33,7 @@ public class server extends AppCompatActivity {
     private Socket socket;
     private String videoName;
     long startTime, endTime;
-    private Context context;
+    private Context context = this;
 
     public server(Context context,String videoName) {
         this.context = context.getApplicationContext();
@@ -158,6 +160,13 @@ public class server extends AppCompatActivity {
                     inputStream.close();
                     outputStream.close();
                     socket.close();
+                    new Handler(Looper.getMainLooper()).post(new Runnable() {
+                        @Override
+                        public void run() {
+                            Toast.makeText(context.getApplicationContext(), "Saved video to storage", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                    Player.storage_exists = 1;
                     System.out.println("RSSI server = "+(int)(rssi/(count+1)));
                     Log.d(TAG, "Search time = "+(endTime-startTime));
                     endTime = System.currentTimeMillis();
