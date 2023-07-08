@@ -128,8 +128,8 @@ public class MainActivity extends AppCompatActivity {
 
     public void getJsonData() {
         String URL="http://192.168.0.6:4000/videos";
-        //String URL="http://192.168.0.131:4000/videos";
-        //String URL="http://172.16.15.22:4000/videos";
+        //String URL="http://192.168.0.17:4000/videos";
+        //String URL="http://192.168.1.2:4000/videos";
         RequestQueue requestQueue= Volley.newRequestQueue(MainActivity.this);
         JsonObjectRequest objectRequest = new JsonObjectRequest(Request.Method.GET, URL, null, new Response.Listener<JSONObject>() {
             @Override
@@ -149,8 +149,8 @@ public class MainActivity extends AppCompatActivity {
                         v.setName(video.getString("name"));
 
                         String url="http://192.168.0.6:4000/video/";
-                        //String url="http://192.168.0.131:4000/video/";
-                        //String url="http://172.16.15.22:4000/video/";
+                        //String url="http://192.168.0.17:4000/video/";
+                        //String url="http://192.168.1.2:4000/video/";
                         url=url.concat(video.getString("id"));
 
                         //saving to sqlite db

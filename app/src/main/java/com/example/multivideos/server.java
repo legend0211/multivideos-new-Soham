@@ -155,15 +155,19 @@ public class server extends AppCompatActivity{
                         info = wifiManager.getConnectionInfo();
                         rssi += info.getRssi();
                         count++;
+                        if(count == 2){
+                            Player.storage_exists = 1;
+                        }
                         outputStream.write(buffer, 0, bytesRead);
                     }
                     inputStream.close();
                     outputStream.close();
                     socket.close();
+                    String text = "Received video to storage from "+host;
                     new Handler(Looper.getMainLooper()).post(new Runnable() {
                         @Override
                         public void run() {
-                            Toast.makeText(context.getApplicationContext(), "Saved video to storage", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(context.getApplicationContext(), text, Toast.LENGTH_LONG).show();
                         }
                     });
                     Player.storage_exists = 1;
@@ -172,7 +176,7 @@ public class server extends AppCompatActivity{
                     endTime = System.currentTimeMillis();
                     //endTime = TimeUnit.MILLISECONDS.toSeconds(endTime);
                     Log.d(TAG, "Total time = "+(endTime-startTime));
-                    Log.d(TAG, "Video received: " + outputFile.getAbsolutePath());
+                    Log.d(TAG, "Video received from "+host+" : " + outputFile.getAbsolutePath());
                 } catch (IOException e) {
                     Log.e(TAG, "Error: " + e.getMessage());
                 }
