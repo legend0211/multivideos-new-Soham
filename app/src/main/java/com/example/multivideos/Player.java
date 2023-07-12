@@ -82,10 +82,7 @@ public class Player extends AppCompatActivity {
     Uri videoUrl;
     File receivedFile;
     Context context = this;
-    client nsdClient;
-    server nsdServer;
-
-    static int storage_exists = 0, video_in_cache = 0;
+    static int storage_exists = 0;
 
     long starttime = 0L, timemilli = 0L, timeswap = 0L, updatetime = 0L, min, secs, milliseconds;
     Runnable updateTimeThread = new Runnable() {
@@ -147,7 +144,6 @@ public class Player extends AppCompatActivity {
         setContentView(R.layout.activity_player);
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         // spinner = findViewById(R.id.progressBar);
-        final WifiP2pManager wifiP2pManager = (WifiP2pManager) getSystemService(Context.WIFI_P2P_SERVICE);
         Intent i = getIntent();
         Bundle data = i.getExtras();
         Video v = (Video) data.getSerializable("videoData");
@@ -171,14 +167,15 @@ public class Player extends AppCompatActivity {
         // exo player
         // simple cache
 
-        CacheEvictor cacheEvictor = new LeastRecentlyUsedCacheEvictor(100 * 1024 * 1024);
-        StandaloneDatabaseProvider sdp = new StandaloneDatabaseProvider(getApplicationContext());
-        File file = new File(context.getCacheDir(), videoName);
-        if (simpleCache == null) {
-            simpleCache = new SimpleCache(file, cacheEvictor, sdp);
-        }
-        DefaultHttpDataSource.Factory dfh = new DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(true);
-        DefaultDataSource.Factory dff = new DefaultDataSource.Factory(context, dfh);
+//        CacheEvictor cacheEvictor = new LeastRecentlyUsedCacheEvictor(100 * 1024 * 1024);
+//        StandaloneDatabaseProvider sdp = new StandaloneDatabaseProvider(getApplicationContext());
+//        File file = new File(context.getCacheDir(), videoName);
+//        if (simpleCache == null) {
+//            simpleCache = new SimpleCache(file, cacheEvictor, sdp);
+//        }
+//        DefaultHttpDataSource.Factory dfh = new DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(true);
+//        DefaultDataSource.Factory dff = new DefaultDataSource.Factory(context, dfh);
+
         exoPlayer = new ExoPlayer.Builder(getApplicationContext()).build();
         playerView.setPlayer(exoPlayer);
 
@@ -186,13 +183,12 @@ public class Player extends AppCompatActivity {
         File[] cacheFiles = cacheDir.listFiles();
         int flag = 0;
 
+
         if(cacheFiles != null){
             for (File cacheFile : cacheFiles) {
                 Log.d(TAG, vname+" Cache files : "+cacheFile.getName());
                 if (cacheFile.isFile() && cacheFile.getName().equals(vname)) {
                     Log.d(TAG, "Entered playing from cache");
-                    client client=new client(this);
-                    client.registerService(8888, vname);
                     File filee = cacheFile;
                     MediaItem mediaItem = MediaItem.fromUri(filee.getPath());
                     exoPlayer.setMediaItem(mediaItem);
@@ -208,13 +204,21 @@ public class Player extends AppCompatActivity {
         //else {
         if(flag == 0) {
             File check;
-            String path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS) + "/exoplayer.mp4";
+            System.out.println("Vname = "+vname);
+
+            File outputDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+            String path = outputDir + "/"+ vname+".mp4";
+            //String path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS) + "/"+ vname+".mp4";
+            System.out.println(path);
+
             receivedFile = new File(path);
             boolean exists = receivedFile.exists();
             if(!exists) {
                 // Create a new instance of NsdServer and start the service
-                server server=new server(this,"exoplayer.mp4");
-                server.discoverServices();
+                //server server=new server(this,vname);
+                //server.discoverServices();
+                client client = new client(this, vname);
+                client.registerService(8888);
 
                 check=new File(path);
                 exists=check.exists();
@@ -225,7 +229,7 @@ public class Player extends AppCompatActivity {
                 }
                 else {
                     try {
-                        Thread.sleep(1000);
+                        Thread.sleep(1500);
                         if(check.exists()) {
                             final Player activity = Player.this;
                             activity.runOnUiThread(new Runnable() {
@@ -237,6 +241,7 @@ public class Player extends AppCompatActivity {
                             });
                         }
                         else {
+                            client.close();
                             MediaItem mediaItem = MediaItem.fromUri(videoUrl);
                             exoPlayer.setMediaItem(mediaItem);
                             exoPlayer.prepare();
@@ -254,25 +259,20 @@ public class Player extends AppCompatActivity {
                                     try {
                                         //Thread.sleep(3000);
                                         if(!check.exists()) {
-                                            server.stopDiscovery();
                                             URL url = new URL(vUrl);
                                             URLConnection connection = url.openConnection();
                                             InputStream inputStream = new BufferedInputStream(connection.getInputStream());
 
                                             File cacheDir = getApplicationContext().getCacheDir();
                                             File videoFile = new File(cacheDir, fileName);
-                                            //File video = new File( Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS) + "/exoplayer.mp4");
                                             OutputStream outputStream = new FileOutputStream(videoFile);
-                                            //OutputStream outputStream1 = new FileOutputStream(video);
 
                                             byte[] buffer = new byte[1024];
                                             int bytesRead;
                                             while ((bytesRead = inputStream.read(buffer)) != -1) {
                                                 outputStream.write(buffer, 0, bytesRead);
-                                                //outputStream1.write(buffer, 0, bytesRead);
                                             }
                                             outputStream.close();
-                                            //outputStream1.close();
                                             inputStream.close();
 
                                             final Player activity = Player.this;
@@ -290,8 +290,7 @@ public class Player extends AppCompatActivity {
                                                             exoPlayer.seekTo(currentPos);
                                                             exoPlayer.play();
                                                             Log.d(TAG, "Playing from cache from mid");
-                                                            client client=new client(context);
-                                                            client.registerService(8888, vname);
+                                                            //client.addAttributes(vname);
                                                         }
                                                     });
                                                 }
@@ -317,8 +316,8 @@ public class Player extends AppCompatActivity {
             exoPlayer.play();
         }
 
-        cache = isVideoCached(videoUrl);
-        System.out.println("cache after= " + cache);
+        //cache = isVideoCached(videoUrl);
+        //System.out.println("cache after= " + cache);
         System.out.println("Here");
 
         customerHandler.postDelayed(updateTimeThread, 0);
@@ -450,7 +449,6 @@ public class Player extends AppCompatActivity {
 
     }
     RequestQueue requestQueue = null;
-
     private void postJsonData() throws JSONException {
         //System.out.println("{json calledddd..........}");
         Date currentTime = Calendar.getInstance().getTime();
@@ -458,7 +456,7 @@ public class Player extends AppCompatActivity {
         String temp = vname + "       " + date1 + "      " + min + ":" + secs + ":" + milliseconds + "  " + cache;
 
         String URL = "http://192.168.0.6:4000/video";
-        //String URL = "http://192.168.0.17:4000/video";
+        //String URL = "http://192.168.0.5:4000/video";
         //String URL = "http://192.168.1.2:4000/video";
 
 
@@ -505,14 +503,9 @@ public class Player extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         exoPlayer.release();
-
     }
     @Override
     protected void onStart() {
         super.onStart();
-        // Start discovering services
-
     }
-
-
 }

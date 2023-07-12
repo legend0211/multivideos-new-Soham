@@ -76,6 +76,12 @@ public class MainActivity extends AppCompatActivity {
         getJsonData();
 
         rssi();
+
+        //client client = new client(this);
+        //client.registerService(8888, "exoplayer");
+
+        server server=new server(this,"");
+        server.discoverServices();
     }
 
     public void rssi(){
@@ -128,7 +134,7 @@ public class MainActivity extends AppCompatActivity {
 
     public void getJsonData() {
         String URL="http://192.168.0.6:4000/videos";
-        //String URL="http://192.168.0.17:4000/videos";
+        //String URL="http://192.168.0.5:4000/videos";
         //String URL="http://192.168.1.2:4000/videos";
         RequestQueue requestQueue= Volley.newRequestQueue(MainActivity.this);
         JsonObjectRequest objectRequest = new JsonObjectRequest(Request.Method.GET, URL, null, new Response.Listener<JSONObject>() {
@@ -149,7 +155,7 @@ public class MainActivity extends AppCompatActivity {
                         v.setName(video.getString("name"));
 
                         String url="http://192.168.0.6:4000/video/";
-                        //String url="http://192.168.0.17:4000/video/";
+                        //String url="http://192.168.0.5:4000/video/";
                         //String url="http://192.168.1.2:4000/video/";
                         url=url.concat(video.getString("id"));
 

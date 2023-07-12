@@ -1,5 +1,4 @@
 package com.example.multivideos;
-
 import android.content.Context;
 import android.net.nsd.NsdManager;
 import android.net.nsd.NsdServiceInfo;
@@ -10,21 +9,26 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import android.widget.Toast;
+
 import androidx.appcompat.app.AppCompatActivity;
 
+import java.io.BufferedInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
-
-public class server extends AppCompatActivity{
+public class server extends AppCompatActivity {
     private static final String SERVICE_TYPE = "_http._tcp.";
     private static final String TAG = "Server";
     private NsdManager nsdManager;
@@ -32,19 +36,31 @@ public class server extends AppCompatActivity{
     private NsdManager.ResolveListener resolveListener;
     private Socket socket;
     private String videoName;
-    long startTime, endTime;
-    private Context context = this;
+    private long startTime, endTime;
+    private Context context;
 
-    public server(Context context,String videoName) {
-        this.context = context.getApplicationContext();
+    static byte[] buffer = new byte[4096];
+
+    List<NsdServiceInfo> services = new ArrayList<>();
+
+    private boolean isResolvingService = false;
+    static String path = "";
+
+    OutputStream outputStream;
+    InputStream inputStream;
+
+
+    public server(Context context, String videoName) {
+        this.context = context;
         nsdManager = (NsdManager) context.getSystemService(Context.NSD_SERVICE);
-        this.videoName=videoName;
+        this.videoName = videoName;
     }
 
     public void discoverServices() {
-        Log.d(TAG, "Discovery services");
+        Log.d(TAG, "Discovering services");
         startTime = System.currentTimeMillis();
-        //startTime = TimeUnit.MILLISECONDS.toSeconds(startTime);
+        services = new ArrayList<>();
+
         discoveryListener = new NsdManager.DiscoveryListener() {
             @Override
             public void onDiscoveryStarted(String serviceType) {
@@ -59,8 +75,8 @@ public class server extends AppCompatActivity{
             @Override
             public void onServiceFound(NsdServiceInfo serviceInfo) {
                 Log.d(TAG, "Service found: " + serviceInfo.getServiceName());
-                //nsdManager.resolveService(serviceInfo, resolveListener);
-                resolveService(serviceInfo);
+                services.add(serviceInfo);
+                resolveServices();
             }
 
             @Override
@@ -70,115 +86,145 @@ public class server extends AppCompatActivity{
 
             @Override
             public void onStartDiscoveryFailed(String serviceType, int errorCode) {
-                Log.e(TAG, "Error code (onStartDiscoveryFailed) : " + errorCode);
+                Log.e(TAG, "Error code (onStartDiscoveryFailed): " + errorCode);
             }
 
             @Override
             public void onStopDiscoveryFailed(String serviceType, int errorCode) {
-                Log.e(TAG, "Error code (onStopDiscoveryFailed) : " + errorCode);
+                Log.e(TAG, "Error code (onStopDiscoveryFailed): " + errorCode);
             }
         };
-
+        services = new ArrayList<>();
         nsdManager.discoverServices(SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, discoveryListener);
     }
 
     public void stopDiscovery() {
-        nsdManager.stopServiceDiscovery(discoveryListener);
+        try {
+            nsdManager.stopServiceDiscovery(discoveryListener);
+        }
+        catch(Exception e) {}
     }
 
+    public void resolveServices() {
+        if (!services.isEmpty() && isResolvingService==false) {
+            NsdServiceInfo serviceInfo = services.remove(0);
+            resolveService(serviceInfo);
+            isResolvingService = true;
+        }
+    }
     public void resolveService(NsdServiceInfo serviceInfo) {
-        resolveListener = new NsdManager.ResolveListener() {
+        NsdManager.ResolveListener resolveListener = new NsdManager.ResolveListener() {
             @Override
             public void onResolveFailed(NsdServiceInfo serviceInfo, int errorCode) {
-                Log.e(TAG, "Error code (onResolveFailed) : " + errorCode);
+                Log.e(TAG, "Error code (onResolveFailed): " + errorCode+"..."+serviceInfo.getServiceName());
+                isResolvingService = false;
+                resolveServices();
             }
             @Override
             public void onServiceResolved(NsdServiceInfo serviceInfo) {
-                stopDiscovery();
-                saveVideo(serviceInfo);
+                System.out.println("On service resolved");
+                WifiManager wifiManager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
+                WifiInfo wifiInfo = wifiManager.getConnectionInfo();
+                int deviceIpAddress = wifiInfo.getIpAddress();
+                String formattedIpAddress = String.format("%d.%d.%d.%d", (deviceIpAddress & 0xff),
+                        (deviceIpAddress >> 8 & 0xff), (deviceIpAddress >> 16 & 0xff), (deviceIpAddress >> 24 & 0xff));
+                String hostIpAddress = serviceInfo.getHost().getHostAddress();
+                Log.d(TAG, "Service resolved: " + serviceInfo.getServiceName());
+                Log.d(TAG, "Host: " + hostIpAddress);
+
+                if (!formattedIpAddress.equals(hostIpAddress)) {
+                    boolean foundVideo = false;
+                    byte[] valueBytes = serviceInfo.getAttributes().get("Vidname");
+                    String value = new String(valueBytes);
+
+                    File cacheDir = context.getCacheDir();
+                    File[] cacheFiles = cacheDir.listFiles();
+                    if (cacheFiles != null) {
+                        for (File cacheFile : cacheFiles) {
+                            if (cacheFile.isFile()) {
+                                if(cacheFile.getName().equals(value)){
+                                    foundVideo = true;
+                                    path = cacheFile.getAbsolutePath();
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if (foundVideo) {
+                        stopDiscovery();
+                        sendVideo(serviceInfo, path);
+                    }
+                    else {
+                        isResolvingService = false;
+                        resolveServices();
+                    }
+                } else {
+                    Log.e(TAG, "Cannot resolve own service");
+                    onResolveFailed(serviceInfo, 4);
+                    isResolvingService = false;
+                    resolveServices();
+                }
             }
         };
 
-        nsdManager.resolveService(serviceInfo, resolveListener);
+        NsdManager nsdM = (NsdManager) context.getSystemService(Context.NSD_SERVICE);
+        nsdM.resolveService(serviceInfo, resolveListener);
     }
 
-    public void close() {
-        if (socket != null) {
-            try {
-                socket.close();
-            } catch (IOException e) {
-                Log.e(TAG, "Error closing socket: " + e.getMessage());
-            }
-        }
-        if (resolveListener != null) {
-            nsdManager.stopServiceDiscovery(discoveryListener);
-            //nsdManager.unregisterService(resolveListener);
-            resolveListener = null;
-        }
-        if (discoveryListener != null) {
-            nsdManager.stopServiceDiscovery(discoveryListener);
-            discoveryListener = null;
-        }
-    }
-
-    public void saveVideo(NsdServiceInfo serviceInfo) {
+    public void sendVideo(NsdServiceInfo serviceInfo, String path) {
         ExecutorService executorService = Executors.newSingleThreadExecutor();
         executorService.execute(new Runnable() {
             @Override
             public void run() {
                 try {
-                    Log.d(TAG, "Waiting for incoming connections...");
-                    InetAddress host = InetAddress.getByName(serviceInfo.getHost().getHostAddress());
+                    InetAddress host = serviceInfo.getHost();
                     int port = serviceInfo.getPort();
 
-                    // connect to the server
+                    // Connect to the server
                     socket = new Socket(host, port);
                     endTime = System.currentTimeMillis();
-                    // receive the video
-                    InputStream inputStream = socket.getInputStream();
-                    File outputFile = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), videoName);
-                    if(outputFile.exists()){
-                        outputFile.delete();
-                        outputFile.createNewFile();
-                    }
 
-                    OutputStream outputStream = new FileOutputStream(outputFile);
-                    byte[] buffer = new byte[1024 * 1024];
-                    int bytesRead, count=0;
-                    WifiManager wifiManager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
-                    WifiInfo info = wifiManager.getConnectionInfo();
-                    int rssi = info.getRssi();
+                    // Receive the video
+                    outputStream = socket.getOutputStream();
+                    File file = new File(path);
+                    inputStream = new BufferedInputStream(new FileInputStream(file));
+                    int bytesRead;
 
+                    System.out.println("Sending video...");
                     while ((bytesRead = inputStream.read(buffer)) != -1) {
-                        //Log.d(TAG, "Bytes read = "+(++count));
-                        wifiManager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
-                        info = wifiManager.getConnectionInfo();
-                        rssi += info.getRssi();
-                        count++;
-                        if(count == 2){
-                            Player.storage_exists = 1;
-                        }
                         outputStream.write(buffer, 0, bytesRead);
                     }
-                    inputStream.close();
+
+                    Log.d(TAG, "Sent video");
                     outputStream.close();
+                    inputStream.close();
                     socket.close();
-                    String text = "Received video to storage from "+host;
+                } catch (IOException e) {
+                    Log.e(TAG, "Error: " + e.getMessage()+e);
+                } finally {
+                    try {
+                        if (outputStream != null) {
+                            outputStream.close();
+                        }
+                    } catch (IOException e) {}
+                    try {
+                        if (inputStream != null) {
+                            inputStream.close();
+                        }
+                    } catch (IOException e) {}
+                    try{
+                        if (socket != null) {
+                            socket.close();
+                        }
+                    } catch (IOException e) {}
                     new Handler(Looper.getMainLooper()).post(new Runnable() {
                         @Override
                         public void run() {
-                            Toast.makeText(context.getApplicationContext(), text, Toast.LENGTH_LONG).show();
+                            // Create a new instance of Server and call discoverServices()
+                            server server = new server(context, "");
+                            server.discoverServices();
                         }
                     });
-                    Player.storage_exists = 1;
-                    System.out.println("RSSI server = "+(int)(rssi/(count+1)));
-                    Log.d(TAG, "Search time = "+(endTime-startTime));
-                    endTime = System.currentTimeMillis();
-                    //endTime = TimeUnit.MILLISECONDS.toSeconds(endTime);
-                    Log.d(TAG, "Total time = "+(endTime-startTime));
-                    Log.d(TAG, "Video received from "+host+" : " + outputFile.getAbsolutePath());
-                } catch (IOException e) {
-                    Log.e(TAG, "Error: " + e.getMessage());
                 }
             }
         });
