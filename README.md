@@ -1,4 +1,4 @@
-# Animation of how it works
+# How it works
 ![1](https://github.com/legend0211/multivideos-new-Soham/assets/81215372/40719079-bef6-4acd-91df-79213e840935)
 ![2](https://github.com/legend0211/multivideos-new-Soham/assets/81215372/c1c8f3f6-6158-4d00-a0b7-46b1be3f937b)
 ![3](https://github.com/legend0211/multivideos-new-Soham/assets/81215372/7574dcd2-da02-4daa-acd8-dd0237bee842)
